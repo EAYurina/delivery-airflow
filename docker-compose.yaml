@@ -1,0 +1,68 @@
+x-airflow-common: &airflow-common
+  image: ${AIRFLOW_IMAGE_NAME:-apache/airflow:2.10.0}
+  environment: &airflow-common-env
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+    AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
+  volumes:
+    - ${AIRFLOW_PROJ_DIR:-.}/dags:/opt/airflow/dags
+    - ${AIRFLOW_PROJ_DIR:-.}/data:/opt/airflow/data
+    - ${AIRFLOW_PROJ_DIR:-.}/models:/opt/airflow/models
+    - ${AIRFLOW_PROJ_DIR:-.}/logs:/opt/airflow/logs
+    - ${AIRFLOW_PROJ_DIR:-.}/plugins:/opt/airflow/plugins
+  user: "${AIRFLOW_UID:-50000}:0"
+
+services:
+  postgres:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - postgres-db-volume:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 10s
+      retries: 5
+      start_period: 5s
+    restart: always
+
+  airflow-init:
+    <<: *airflow-common
+    user: "50000:0"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: >
+      bash -c "
+      pip install pandas==2.3.1 scikit-learn==1.7.1 joblib==1.4.2 catboost==1.2.10 numpy==1.26.4 &&
+      airflow db migrate &&
+      airflow users create -u airflow -p airflow -f Admin -l User -r Admin -e admin@example.com
+      "
+
+  airflow-scheduler:
+    <<: *airflow-common
+    command: scheduler
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+
+  airflow-webserver:
+    <<: *airflow-common
+    command: webserver
+    ports:
+      - "8080:8080"
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+
+volumes:
+  postgres-db-volume:
