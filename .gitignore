@@ -1,19 +1,14 @@
-# Минимальный .gitignore для ML/Airflow проекта
-
-# Airflow / ML data (игнорируем содержимое, но не папки)
-config/*
+# Данные
 data/input/*
 data/output/*
-!data/input/.gitkeep
-!data/output/.gitkeep
-logs/*
-models/*
-plugins/*
 
-!config/.gitkeep
-!logs/.gitkeep
-!models/.gitkeep
-!plugins/.gitkeep
+# Airflow
+logs/*
+plugins/*
+config/*
+airflow.cfg
+airflow.db
+standalone_admin_password.txt
 
 # Python
 __pycache__/
@@ -25,6 +20,9 @@ build/
 dist/
 *.egg-info/
 .egg
+
+# Jupyter
+.ipynb_checkpoints/
 
 # Виртуальные окружения
 .env
